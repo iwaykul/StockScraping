@@ -2,8 +2,13 @@ import requests
 import json 
 from tkinter import *
 from tkinter import messagebox
+import pandas as pd
+import matplotlib.pyplot as plt 
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import csv
+from pandasql import sqldf
 
-key = 'XXX'
+key = 'TY9K8IQWOSDUIWRC'
 
 class Application(Tk):
 
@@ -16,8 +21,10 @@ class Application(Tk):
 		self.entrySymbol = Entry(self, textvariable=self.stringVar).grid(row = 0, column = 1)
 		self.labelDay = Label(self, text= "How Many Days?").grid(row = 1, column = 0)
 		self.entryDay = Entry(self, textvariable=self.numDays).grid(row = 1, column = 1)
-		self.button = Button(self, text = "Obtain Info", command = self.hitButton).grid(row = 2, column = 1)
+		self.button = Button(self, text = "Daily Specifics", command = self.dailySpecifics).grid(row = 2, column = 0)
+		self.button = Button(self, text = "Day-By-Day Trends", command = self.hitButton).grid(row = 2, column = 1)
 		self.symb_data = None
+		self.specific_daily = None
 
 	def get_symbol_data(self,ticker):
 		#messagebox.showinfo("Symbol Change:", ticker)
@@ -88,10 +95,67 @@ class Application(Tk):
 	def testHit(self):
 		messagebox.showinfo("Attention:", "Information Updated!")
 
+
+	def dataClean(self, file): 
+		masterData = []
+		title = True 
+		with open('intraday_data.csv', newline='') as csvfile:
+			spamreader = csv.reader(csvfile, delimiter= ' ', quotechar= '|' )
+			for row in spamreader:
+				if (title): 
+					#Split 1st item into different parts 
+
+					data = row[0].split(",")
+					data.insert(0, "date")
+					#print(data)
+
+					title = False
+				else: 
+					#Split 2nd item into different parts 
+					date = row[0]
+					data = row[1].split(",")
+					data.insert(0, date) 
+				masterData.append(data)
+		column_names = masterData.pop(0) 
+		return pd.DataFrame(masterData, columns=column_names)
+
+
+
+
+
+
+    #Create A Graph To Show The Data Every X Amount of Minutes
+    #Find the highest % change positive and % change negative
+	def dailySpecifics(self):
+		messagebox.showinfo("Daily Specifics", "Read About It")
+		url = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED&symbol={}&interval=5min&slice=year1month1&apikey={}'.format(self.stringVar.get(), key)
+		response = requests.get(url)
+		csv_file = open("intraday_data.csv", "wb")
+		csv_file.write(response.content)
+		csv_file.close()
+		intraday_data = self.dataClean("intraday_data.csv")
+		#print(intraday_data.keys())
+		yesterday = intraday_data.query("date == '2021-05-13'") 
+		y_close = yesterday['close']
+		time_stamp = yesterday['time']
+		print(len(list(time_stamp)))
+		print(len(list(y_close)))
+		date_set = set(list(intraday_data['date'])) 
+		self.graphDailyData('2021-05-13', list(time_stamp), list(y_close))
+
+
+
+		
+
 	def closeDataPage(self):
 		self.symb_data.withdraw()
 		self.symb_data = None
 		self.deiconify()
+
+
+	def graphDailyData(self, date, x, y):
+		self.specific_daily = Tk() 
+		self.specific_daily.title('{} Stock Information for {}'.format(self.stringVar.get(), date))
 
 
 
